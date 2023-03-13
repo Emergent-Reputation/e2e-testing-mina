@@ -1,5 +1,5 @@
 /**
- * This script can be used to interact with the Add contract, after deploying it.
+ * This script can be used to interact with the Auction contract, after deploying it.
  *
  * We call the update() method on the contract, create a proof and send it to the chain.
  * The endpoint that we interact with is read from your config.json.
@@ -14,7 +14,7 @@
  */
 import { Mina, PrivateKey, shutdown } from 'snarkyjs';
 import fs from 'fs/promises';
-import { Add } from './Add.js';
+import { Auction } from './Auction.js';
 
 // check command line arg
 let network = process.argv[2];
@@ -41,18 +41,21 @@ let zkAppKey = PrivateKey.fromBase58(key.privateKey);
 // set up Mina instance and contract we interact with
 const Network = Mina.Network(config.url);
 Mina.setActiveInstance(Network);
-let zkAppAddress = zkAppKey.toPublicKey();
-let zkApp = new Add(zkAppAddress);
+let zkAppAuctionress = zkAppKey.toPublicKey();
+let zkApp = new Auction(zkAppAuctionress);
 
 // compile the contract to create prover keys
 console.log('compile the contract...');
-await Add.compile();
+await Auction.compile();
 
 // call update() and send transaction
 console.log('build transaction and create proof...');
-let tx = await Mina.transaction({ sender: zkAppAddress, fee: 0.1e9 }, () => {
-  zkApp.update();
-});
+let tx = await Mina.transaction(
+  { sender: zkAppAuctionress, fee: 0.1e9 },
+  () => {
+    zkApp.update();
+  }
+);
 await tx.prove();
 console.log('send transaction...');
 let sentTx = await tx.sign([zkAppKey]).send();

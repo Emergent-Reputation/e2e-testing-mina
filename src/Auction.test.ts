@@ -1,4 +1,4 @@
-import { Add, Subtract } from './Add';
+import { Auction, Subtract } from './Auction';
 import {
   isReady,
   shutdown,
@@ -10,7 +10,7 @@ import {
 } from 'snarkyjs';
 
 /*
- * This file specifies how to test the `Add` example smart contract. It is safe to delete this file and replace
+ * This file specifies how to test the `Auction` example smart contract. It is safe to delete this file and replace
  * with your own tests.
  *
  * See https://docs.minaprotocol.com/zkapps for more info.
@@ -18,21 +18,21 @@ import {
 
 let proofsEnabled = false;
 
-describe('Add', () => {
+describe('Auction', () => {
   let deployerAccount: PublicKey,
     deployerKey: PrivateKey,
     senderAccount: PublicKey,
     senderKey: PrivateKey,
-    zkAppAddress: PublicKey,
+    zkAppAuctionress: PublicKey,
     zkAppPrivateKey: PrivateKey,
-    zkAppAddress2: PublicKey,
+    zkAppAuctionress2: PublicKey,
     zkAppPrivateKey2: PrivateKey,
-    zkApp: Add,
+    zkApp: Auction,
     zkApp2: Subtract;
 
   beforeAll(async () => {
     await isReady;
-    if (proofsEnabled) Add.compile();
+    if (proofsEnabled) Auction.compile();
   });
 
   beforeEach(() => {
@@ -43,11 +43,11 @@ describe('Add', () => {
     ({ privateKey: senderKey, publicKey: senderAccount } =
       Local.testAccounts[1]);
     zkAppPrivateKey2 = PrivateKey.random();
-    zkAppAddress2 = zkAppPrivateKey2.toPublicKey();
+    zkAppAuctionress2 = zkAppPrivateKey2.toPublicKey();
     zkAppPrivateKey = PrivateKey.random();
-    zkAppAddress = zkAppPrivateKey.toPublicKey();
-    zkApp = new Add(zkAppAddress);
-    zkApp2 = new Subtract(zkAppAddress2);
+    zkAppAuctionress = zkAppPrivateKey.toPublicKey();
+    zkApp = new Auction(zkAppAuctionress);
+    zkApp2 = new Subtract(zkAppAuctionress2);
   });
 
   afterAll(() => {
@@ -63,7 +63,7 @@ describe('Add', () => {
       zkApp.deploy();
     });
     await txn.prove();
-    // this tx needs .sign(), because `deploy()` adds an account update that requires signature authorization
+    // this tx needs .sign(), because `deploy()` Auctions an account update that requires signature authorization
     await txn.sign([deployerKey, zkAppPrivateKey]).send();
 
     const txn2 = await Mina.transaction(deployerAccount, () => {
@@ -71,11 +71,16 @@ describe('Add', () => {
       zkApp2.deploy();
     });
     await txn2.prove();
-    // this tx needs .sign(), because `deploy()` adds an account update that requires signature authorization
+    // this tx needs .sign(), because `deploy()` Auctions an account update that requires signature authorization
     await txn2.sign([deployerKey, zkAppPrivateKey2]).send();
   }
 
-  it('generates and deploys the `Add` and `Subtract` smart contract', async () => {
+  it('experiments with actions', async () => {
+    await localDeploy();
+    zkApp.sendAction();
+  });
+
+  it('generates and deploys the `Auction` and `Subtract` smart contract', async () => {
     await localDeploy();
     const num = zkApp.num.get();
     expect(num).toEqual(Field(1));
@@ -83,7 +88,7 @@ describe('Add', () => {
     expect(num2).toEqual(Field(1));
   });
 
-  it('correctly updates the num state on the `Add` smart contract', async () => {
+  it('correctly updates the num state on the `Auction` smart contract', async () => {
     await localDeploy();
 
     // update transaction
@@ -97,12 +102,12 @@ describe('Add', () => {
     expect(updatedNum).toEqual(Field(3));
   });
 
-  it('Add correctly uses Call stack composability to subtract a value using Subtract update method', async () => {
+  it('Auction correctly uses Call stack composability to subtract a value using Subtract update method', async () => {
     await localDeploy();
 
     // update transaction
     const txn = await Mina.transaction(senderAccount, () => {
-      zkApp.subtract(zkAppAddress2);
+      zkApp.subtract(zkAppAuctionress2);
     });
     await txn.prove();
     await txn.sign([senderKey]).send();
