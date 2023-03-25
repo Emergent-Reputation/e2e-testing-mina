@@ -7,6 +7,8 @@ import {
   PrivateKey,
   PublicKey,
   AccountUpdate,
+  Reducer,
+  Circuit,
 } from 'snarkyjs';
 
 /*
@@ -61,6 +63,7 @@ describe('Auction', () => {
     const txn = await Mina.transaction(deployerAccount, () => {
       AccountUpdate.fundNewAccount(deployerAccount);
       zkApp.deploy();
+      zkApp.actionsHash.set(Reducer.initialActionsHash);
     });
     await txn.prove();
     // this tx needs .sign(), because `deploy()` Auctions an account update that requires signature authorization
@@ -75,9 +78,20 @@ describe('Auction', () => {
     await txn2.sign([deployerKey, zkAppPrivateKey2]).send();
   }
 
-  it('experiments with actions', async () => {
+  it.only('experiments with actions', async () => {
     await localDeploy();
-    zkApp.sendAction();
+    let txn = await Mina.transaction(deployerAccount, () => {
+      zkApp.submitOffer(Field(2000000), Field(1));
+    });
+    await txn.prove();
+    await txn.sign([deployerKey]).send();
+    // // Sleep for 1 second to allow the transaction to be processed
+    // // await new Promise((resolve) => setTimeout(resolve, 100));
+    let txn2 = await Mina.transaction(deployerAccount, () => {
+      zkApp.getActions();
+    });
+    await txn2.prove();
+    await txn2.sign([deployerKey]).send();
   });
 
   it('generates and deploys the `Auction` and `Subtract` smart contract', async () => {

@@ -7,8 +7,148 @@ import {
   PublicKey,
   Circuit,
   Reducer,
+  UInt64,
 } from 'snarkyjs';
 
+// const INCREMENT = Field(1);
+
+// class CounterZkapp extends SmartContract {
+//   // the "reducer" field describes a type of action that we can dispatch, and reduce later
+//   reducer = Reducer({ actionType: Field });
+
+//   // on-chain version of our state. it will typically lag behind the
+//   // version that's implicitly represented by the list of actions
+//   @state(Field) counter = State<Field>();
+//   // helper field to store the point in the action history that our on-chain state is at
+//   @state(Field) actionsHash = State<Field>();
+
+//   @method incrementCounter() {
+//     this.reducer.dispatch(INCREMENT);
+//   }
+
+//   @method rollupIncrements() {
+//     // get previous counter & actions hash, assert that they're the same as on-chain values
+//     let counter = this.counter.get();
+//     this.counter.assertEquals(counter);
+//     let actionsHash = this.actionsHash.get();
+//     this.actionsHash.assertEquals(actionsHash);
+
+//     // compute the new counter and hash from pending actions
+//     let pendingActions = this.reducer.getActions({
+//       fromActionHash: actionsHash,
+//     });
+
+//     let { state: newCounter, actionsHash: newActionsHash } =
+//       this.reducer.reduce(
+//         pendingActions,
+//         // state type
+//         Field,
+//         // function that says how to apply an action
+//         (state: Field, _action: Field) => {
+//           return state.add(1);
+//         },
+//         { state: counter, actionsHash }
+//       );
+
+//     // update on-chain state
+//     this.counter.set(newCounter);
+//     this.actionsHash.set(newActionsHash);
+//   }
+// }
+
+// const doProofs = true;
+// const initialCounter = Field(0);
+
+// let Local = Mina.LocalBlockchain({ proofsEnabled: doProofs });
+// Mina.setActiveInstance(Local);
+
+// // a test account that pays all the fees, and puts additional funds into the zkapp
+// let feePayerKey = Local.testAccounts[0].privateKey;
+// let feePayer = Local.testAccounts[0].publicKey;
+
+// // the zkapp account
+// let zkappKey = PrivateKey.fromBase58(
+//   'EKEQc95PPQZnMY9d9p1vq1MWLeDJKtvKj4V75UDG3rjnf32BerWD'
+// );
+// let zkappAddress = zkappKey.toPublicKey();
+// let zkapp = new CounterZkapp(zkappAddress);
+// if (doProofs) {
+//   console.log('compile');
+//   await CounterZkapp.compile();
+// }
+
+// console.log('deploy');
+// let tx = await Mina.transaction(feePayer, () => {
+//   AccountUpdate.fundNewAccount(feePayer);
+//   zkapp.deploy();
+//   zkapp.counter.set(initialCounter);
+//   zkapp.actionsHash.set(Reducer.initialActionsHash);
+// });
+// await tx.sign([feePayerKey, zkappKey]).send();
+
+// console.log('applying actions..');
+
+// console.log('action 1');
+
+// tx = await Mina.transaction(feePayer, () => {
+//   zkapp.incrementCounter();
+// });
+// await tx.prove();
+// await tx.sign([feePayerKey]).send();
+
+// console.log('action 2');
+// tx = await Mina.transaction(feePayer, () => {
+//   zkapp.incrementCounter();
+// });
+// await tx.prove();
+// await tx.sign([feePayerKey]).send();
+
+// console.log('action 3');
+// tx = await Mina.transaction(feePayer, () => {
+//   zkapp.incrementCounter();
+// });
+// await tx.prove();
+// await tx.sign([feePayerKey]).send();
+
+// console.log('rolling up pending actions..');
+
+// console.log('state before: ' + zkapp.counter.get());
+
+// tx = await Mina.transaction(feePayer, () => {
+//   zkapp.rollupIncrements();
+// });
+// await tx.prove();
+// await tx.sign([feePayerKey]).send();
+
+// console.log('state after rollup: ' + zkapp.counter.get());
+
+// console.log('applying more actions');
+
+// console.log('action 4');
+// tx = await Mina.transaction(feePayer, () => {
+//   zkapp.incrementCounter();
+// });
+// await tx.prove();
+// await tx.sign([feePayerKey]).send();
+
+// console.log('action 5');
+// tx = await Mina.transaction(feePayer, () => {
+//   zkapp.incrementCounter();
+// });
+// await tx.prove();
+// await tx.sign([feePayerKey]).send();
+
+// console.log('rolling up pending actions..');
+
+// console.log('state before: ' + zkapp.counter.get());
+
+// tx = await Mina.transaction(feePayer, () => {
+//   zkapp.rollupIncrements();
+// });
+// await tx.prove();
+// await tx.sign([feePayerKey]).send();
+
+// console.log('state after rollup: ' + zkapp.counter.get());
 /**
  * Basic Example
  * See https://docs.minaprotocol.com/zkapps for more info.
@@ -20,18 +160,66 @@ import {
  */
 export class Auction extends SmartContract {
   @state(Field) num = State<Field>();
+  @state(UInt64) auctionDeadline = State<UInt64>();
+  @state(Field) highestBid = State<Field>();
+  @state(Field) actionsHash = State<Field>();
+
   reducer = Reducer({ actionType: Field });
 
   init() {
     super.init();
     this.num.set(Field(1));
+    this.highestBid.set(Field(0));
+    this.auctionDeadline.set(UInt64.from(Date.UTC(2033, 10, 1)));
   }
 
-  @method sendAction() {
-    this.reducer.dispatch(Field(1));
-    // this.reducer.getActions();
+  @method submitOffer(price: Field, auctionID: Field) {
+    const bidderPublicKey = this.account.delegate.get();
+    this.account.delegate.assertEquals(bidderPublicKey);
+    Circuit.log(bidderPublicKey);
+
+    // Dispatch Price to update the current auction bid
+    this.reducer.dispatch(price);
+
+    // Get Network Timestamp
     const timestamp = this.network.timestamp.get();
     this.network.timestamp.assertEquals(timestamp);
+
+    // Get Auction Deadline
+    const deadline = this.auctionDeadline.get();
+    this.auctionDeadline.assertEquals(deadline);
+    deadline.assertGreaterThan(timestamp);
+  }
+
+  @method getActions() {
+    Circuit.asProver(() => {
+      // const actions = this.reducer.getActions({});
+      let initialHighBid = this.highestBid.get();
+      this.highestBid.assertEquals(initialHighBid);
+      // Circuit.log(actions);
+      let actionsHash = this.actionsHash.get();
+      this.actionsHash.assertEquals(actionsHash);
+
+      let pendingActions = this.reducer.getActions({
+        fromActionHash: actionsHash,
+      });
+
+      Circuit.log(pendingActions);
+      // Reduces the actions to the highest bid
+      let { state: newHighBid, actionsHash: newActionsHash } =
+        this.reducer.reduce(
+          pendingActions,
+          Field,
+          (state: Field, _action: Field) => {
+            state = Circuit.if(state.lessThan(_action), _action, state);
+            return state;
+          },
+          { state: initialHighBid, actionsHash }
+        );
+      // // Set the highest bid
+      this.highestBid.set(newHighBid);
+      this.actionsHash.set(newActionsHash);
+    });
   }
 
   @method subtract(subtractContractAuctionress: PublicKey) {
