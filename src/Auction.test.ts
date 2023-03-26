@@ -85,11 +85,12 @@ describe('Auction', () => {
     });
     await txn.prove();
     await txn.sign([deployerKey]).send();
-    // // Sleep for 1 second to allow the transaction to be processed
-    // // await new Promise((resolve) => setTimeout(resolve, 100));
+    // // // Sleep for 1 second to allow the transaction to be processed
+    // // // await new Promise((resolve) => setTimeout(resolve, 100));
     let txn2 = await Mina.transaction(deployerAccount, () => {
       zkApp.getActions();
     });
+    // Circuit.asProver(() => {zkApp.getActions();});
     await txn2.prove();
     await txn2.sign([deployerKey]).send();
   });

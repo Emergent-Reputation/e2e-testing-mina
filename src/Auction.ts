@@ -176,7 +176,7 @@ export class Auction extends SmartContract {
   @method submitOffer(price: Field, auctionID: Field) {
     const bidderPublicKey = this.account.delegate.get();
     this.account.delegate.assertEquals(bidderPublicKey);
-    Circuit.log(bidderPublicKey);
+    // Circuit.log(bidderPublicKey);
 
     // Dispatch Price to update the current auction bid
     this.reducer.dispatch(price);
@@ -192,34 +192,32 @@ export class Auction extends SmartContract {
   }
 
   @method getActions() {
-    Circuit.asProver(() => {
-      // const actions = this.reducer.getActions({});
-      let initialHighBid = this.highestBid.get();
-      this.highestBid.assertEquals(initialHighBid);
-      // Circuit.log(actions);
-      let actionsHash = this.actionsHash.get();
-      this.actionsHash.assertEquals(actionsHash);
+    // const actions = this.reducer.getActions({});
+    let initialHighBid = this.highestBid.get();
+    this.highestBid.assertEquals(initialHighBid);
+    // Circuit.log(actions);
+    let actionsHash = this.actionsHash.get();
+    this.actionsHash.assertEquals(actionsHash);
 
-      let pendingActions = this.reducer.getActions({
-        fromActionHash: actionsHash,
-      });
-
-      Circuit.log(pendingActions);
-      // Reduces the actions to the highest bid
-      let { state: newHighBid, actionsHash: newActionsHash } =
-        this.reducer.reduce(
-          pendingActions,
-          Field,
-          (state: Field, _action: Field) => {
-            state = Circuit.if(state.lessThan(_action), _action, state);
-            return state;
-          },
-          { state: initialHighBid, actionsHash }
-        );
-      // // Set the highest bid
-      this.highestBid.set(newHighBid);
-      this.actionsHash.set(newActionsHash);
+    let pendingActions = this.reducer.getActions({
+      fromActionHash: actionsHash,
     });
+
+    // Circuit.log(pendingActions);
+
+    // Reduces the actions to the highest bid
+    let { state: newHighBid } = this.reducer.reduce(
+      pendingActions,
+      Field,
+      (state: Field, _action: Field) => {
+        // state = Circuit.if(state.lessThan(_action), _action, state);
+        return state;
+      },
+      { state: initialHighBid, actionsHash }
+    );
+    // Set the highest bid
+    this.highestBid.set(newHighBid);
+    // this.actionsHash.set(newActionsHash);
   }
 
   @method subtract(subtractContractAuctionress: PublicKey) {
